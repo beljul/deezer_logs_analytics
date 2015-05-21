@@ -34,5 +34,7 @@ class TestSuite(unittest.TestCase):
         self.assertFalse(deezer.check_line('|25321423|4225664|FR|199|42'))
         self.assertFalse(deezer.check_line('25321423|4225664|FR|199|42&'))
 
+    def test_parse(self):
+        deezer.parse('/home/beljul/Projects/logs')
 if __name__ == '__main__':
     unittest.main()
