@@ -10,7 +10,7 @@ with open('LICENSE') as f:
     license = f.read()
 
 setup(
-    name='parser',
+    name='deezer',
     version='0.0.1',
     description='Logs parser for Deezer providers',
     long_description=readme,
