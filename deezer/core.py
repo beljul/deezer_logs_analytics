@@ -9,7 +9,8 @@ line_regex = re.compile(r'^[0-9]+[|][0-9]+[|][A-Z]{2}[|][0-9]+[|][0-9]+$')
 id_regex = re.compile(r'[0-9]+')
 
 markets = dict()
-songs = Manager().dict()
+songs = dict()
+users = dict()
 
 def check_file(file):
     """Check if the file name is matching what we expect."""
@@ -22,18 +23,22 @@ def check_line(line):
 def write_providers(content, file):
     dir = os.path.dirname(os.path.realpath(file))
     date = id_regex.findall(ntpath.basename(file))
+    # Get the last iteration result
     providers = content[-1]
-    for key in providers:
+    # Write results
+    for key in providers[0]:
         if not os.path.isdir(dir + "/results_" + date[0]):
             os.mkdir(dir + "/results_" + date[0])
         f = open(dir + "/results_" + date[0] + "/report_" + key + ".csv", "w")
-        for tuple in providers[key]:
+        for tuple in providers[0][key]:
             song_id = tuple[0];
             country = tuple[1];
             offer_id = tuple[2];
-            f.write("{};{};{};{}\n".format(song_id, country, offer_id,
-                                         songs[(song_id, country, offer_id)]))
+            f.write("{};{};{};{};{}\n".format(song_id, country, offer_id,
+                                         providers[2][(song_id, country, offer_id)],
+                                         len(providers[1][(song_id, country, offer_id)])))
         f.close()
+
 
 def parse_line(line):
     if not check_line(line): return
@@ -45,25 +50,35 @@ def parse_line(line):
     data = line.split('|')
     # Remove \n
     data[4] = data[4].rstrip()
+    # Get the views number
     if (data[0], data[2], data[4]) in songs:
         songs[(data[0], data[2], data[4])] += 1
     else:
         songs[(data[0], data[2], data[4])] = 1
+    
+    # Get the users number
+    if (data[0], data[2], data[4]) in users:
+        users[(data[0], data[2], data[4])].add(data[1])
+    else:
+        users[(data[0], data[2], data[4])] = set()
+        users[(data[0], data[2], data[4])].add(data[1])
+        
+    # Get markets of the day
     if data[3] in markets:
         markets[data[3]].add((data[0], data[2], data[4]))
     else:
         markets[data[3]] = set()
         markets[data[3]].add((data[0], data[2], data[4]))
-    return markets
+    return (markets, users, songs)
 
 def parse_file(file):
     """Parse a logs file from Deezer and get informations we need."""
     pool = Pool(processes=cpu_count())
     with open(file) as source_file:
-        content = pool.map(parse_line, source_file, 3)
+        res = pool.map(parse_line, source_file, 3)
         pool.close()
         pool.join()
-    write_providers(content, file)
+    write_providers(res, file)
     
 def parse(dir):
     """
