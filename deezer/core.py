@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import division
 import re
 import os
-from multiprocessing import Manager, Pool, cpu_count
+from multiprocessing import Pool, cpu_count
 import ntpath
 
 file_regex = re.compile(r'^listen-[0-9]{8}.log$')
@@ -11,6 +12,7 @@ id_regex = re.compile(r'[0-9]+')
 markets = dict()
 songs = dict()
 users = dict()
+market_share = dict()
 
 def check_file(file):
     """Check if the file name is matching what we expect."""
@@ -21,6 +23,10 @@ def check_line(line):
     return line_regex.match(line)
 
 def write_providers(content, file):
+    # Providers[0] = list of song_id,country,offer_id
+    # Providers[1] = nb_users
+    # Providers[2] = nb_listening
+    # Providers[3] = market_share
     dir = os.path.dirname(os.path.realpath(file))
     date = id_regex.findall(ntpath.basename(file))
     # Get the last iteration result
@@ -34,9 +40,13 @@ def write_providers(content, file):
             song_id = tuple[0];
             country = tuple[1];
             offer_id = tuple[2];
-            f.write("{};{};{};{};{}\n".format(song_id, country, offer_id,
-                                         providers[2][(song_id, country, offer_id)],
-                                         len(providers[1][(song_id, country, offer_id)])))
+            nb_stream = providers[2][(song_id, country, offer_id)];
+            nb_users = len(providers[1][(song_id, country, offer_id)])
+            nb_stream_total = providers[3][(country, offer_id)]
+            f.write("{};{};{};{};{};{}\n".format(song_id, country, offer_id,
+                                         nb_stream,
+                                         nb_users,
+                                         nb_stream / nb_stream_total))
         f.close()
 
 
@@ -50,7 +60,8 @@ def parse_line(line):
     data = line.split('|')
     # Remove \n
     data[4] = data[4].rstrip()
-    # Get the views number
+    
+    # Get the listening number
     if (data[0], data[2], data[4]) in songs:
         songs[(data[0], data[2], data[4])] += 1
     else:
@@ -63,13 +74,19 @@ def parse_line(line):
         users[(data[0], data[2], data[4])] = set()
         users[(data[0], data[2], data[4])].add(data[1])
         
+    # Get the total listening number on a market
+    if (data[2], data[4]) in market_share:
+        market_share[(data[2], data[4])] += 1
+    else:
+        market_share[(data[2], data[4])] = 1
+    
     # Get markets of the day
     if data[3] in markets:
         markets[data[3]].add((data[0], data[2], data[4]))
     else:
         markets[data[3]] = set()
         markets[data[3]].add((data[0], data[2], data[4]))
-    return (markets, users, songs)
+    return (markets, users, songs, market_share)
 
 def parse_file(file):
     """Parse a logs file from Deezer and get informations we need."""
