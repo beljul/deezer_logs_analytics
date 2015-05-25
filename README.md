@@ -1,5 +1,7 @@
-Deezer logs analytic module repository (Python 2.7)
+Deezer logs analytic module repository
 ========================
+Before to begin, everything has been implemented and tested using Python version 2.7.
+
 This project is a logs parser in order to analyze data from Deezer. The aim is to compute the market share by provider.
 
 ##Installation
