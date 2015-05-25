@@ -4,6 +4,9 @@ import re
 import os
 from multiprocessing import Pool, cpu_count
 import ntpath
+import time 
+import datetime
+import subprocess
 
 file_regex = re.compile(r'^listen-[0-9]{8}.log$')
 line_regex = re.compile(r'^[0-9]+[|][0-9]+[|][A-Z]{2}[|][0-9]+[|][0-9]+$')
@@ -23,10 +26,11 @@ def check_line(line):
     return line_regex.match(line)
 
 def write_providers(content, file):
-    # Providers[0] = list of song_id,country,offer_id
-    # Providers[1] = nb_users
-    # Providers[2] = nb_listening
-    # Providers[3] = market_share
+    """Write results from previous computing into file results. """
+    # providers[0] = list of song_id,country,offer_id
+    # providers[1] = nb_users
+    # providers[2] = nb_listening
+    # providers[3] = market_share
     dir = os.path.dirname(os.path.realpath(file))
     date = id_regex.findall(ntpath.basename(file))
     # Get the last iteration result
@@ -51,6 +55,12 @@ def write_providers(content, file):
 
 
 def parse_line(line):
+    """
+    Parse a line in order to get all informations needed to compute what we need :
+     - The listening number
+     - The users number who listened
+     - The market share (based on listening number)
+    """
     if not check_line(line): return
     # data[0] = song_id
     # data[1] = user_id
@@ -90,11 +100,16 @@ def parse_line(line):
 
 def parse_file(file):
     """Parse a logs file from Deezer and get informations we need."""
+    ts = time.time()
+    st = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
     pool = Pool(processes=cpu_count())
     with open(file) as source_file:
-        res = pool.map(parse_line, source_file, 3)
+        print st
+        wc_res = subprocess.check_output(['wc', '-l', file]).strip().split(' ')[0]
+        res = pool.map(parse_line, source_file, int(int(wc_res)/cpu_count()))
         pool.close()
         pool.join()
+        print st
     write_providers(res, file)
     
 def parse(dir):
